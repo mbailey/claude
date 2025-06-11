@@ -1,0 +1,21 @@
+# Environment Variable Prefixes to Pass Through
+# One prefix per line
+
+# Default Claude-related variables
+CLAUDE_
+
+# Project-specific variables
+PROJECT_
+MY_APP_
+
+# Development tools
+GITHUB_
+GITLAB_
+NPM_
+PYTHON_
+
+# API keys (be selective!)
+# Only uncomment if needed:
+# OPENAI_
+# AWS_
+# GOOGLE_

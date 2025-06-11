@@ -1,0 +1,81 @@
+# Claude Sandbox Container
+# Provides an isolated environment for running Claude Code safely
+
+FROM debian:bookworm-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    git \
+    jq \
+    tini \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
+    ripgrep \
+    # Network tools for potential filtering
+    dnsutils \
+    iptables \
+    # Process management
+    procps \
+    # Editor for potential use
+    vim-tiny \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 18+ (Debian bookworm has older version)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code
+
+# Install uv for Python package management (for MCP servers)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Make uv available to all users
+RUN ln -s /root/.cargo/bin/uv /usr/local/bin/uv && \
+    ln -s /root/.cargo/bin/uvx /usr/local/bin/uvx
+
+# Create non-root user
+RUN useradd -m -s /bin/bash -u 1000 claude && \
+    mkdir -p /home/claude/.claude && \
+    mkdir -p /home/claude/.npm && \
+    mkdir -p /home/claude/.cache && \
+    mkdir -p /workspace && \
+    chown -R claude:claude /home/claude /workspace && \
+    chmod 755 /workspace && \
+    chmod -R 755 /home/claude/.claude
+
+# Setup Python virtual environment for claude user
+USER claude
+RUN python3 -m venv /home/claude/.venv
+ENV PATH="/home/claude/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/home/claude/.venv"
+
+# Upgrade pip (uv/uvx already available system-wide)
+RUN pip install --upgrade pip
+
+# Copy entrypoint script
+USER root
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user
+USER claude
+WORKDIR /workspace
+
+# Set environment variables
+ENV HOME=/home/claude
+ENV NODE_ENV=production
+ENV CLAUDE_SANDBOX=true
+
+# Use tini as init process
+ENTRYPOINT ["tini", "--", "/usr/local/bin/entrypoint.sh"]
+
+# Default command
+CMD ["claude", "--dangerously-skip-permissions"]

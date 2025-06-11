@@ -1,0 +1,56 @@
+# MCP Server Configuration for Claude Sandbox
+#
+# This file defines MCP servers to run inside the sandbox container
+
+servers:
+  # Brave Search - requires BRAVE_API_KEY environment variable
+  - name: brave-search
+    type: npx
+    package: "@modelcontextprotocol/server-brave-search"
+    env:
+      BRAVE_API_KEY: "${BRAVE_API_KEY}"
+    auto_start: true
+
+  # Memory server for persistent context
+  - name: memory
+    type: npx
+    package: "@modelcontextprotocol/server-memory"
+    env:
+      MEMORY_FILE_PATH: "/workspace/.claude-memory.json"
+    auto_start: true
+
+  # Filesystem access (sandboxed to workspace)
+  - name: filesystem
+    type: uvx
+    package: "mcp-server-filesystem"
+    args:
+      - "--allowed-paths"
+      - "/workspace"
+      - "--read-only"
+    auto_start: false
+
+  # Git operations (if needed)
+  - name: git
+    type: uvx
+    package: "mcp-server-git"
+    args:
+      - "--repository"
+      - "/workspace"
+    auto_start: false
+
+  # Time utilities
+  - name: time
+    type: npx
+    package: "@modelcontextprotocol/server-time"
+    auto_start: false
+
+# Global settings
+settings:
+  # Restart servers if they crash
+  restart_on_failure: true
+  
+  # Log server output
+  log_output: true
+  
+  # Server startup timeout (seconds)
+  startup_timeout: 30

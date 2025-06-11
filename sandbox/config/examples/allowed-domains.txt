@@ -1,0 +1,33 @@
+# Claude Sandbox Allowed Domains
+# One domain per line, wildcards supported with *
+# Lines starting with # are comments
+
+# Anthropic services
+docs.anthropic.com
+api.anthropic.com
+console.anthropic.com
+
+# Development resources
+github.com
+api.github.com
+raw.githubusercontent.com
+gitlab.com
+
+# Package registries
+registry.npmjs.org
+pypi.org
+files.pythonhosted.org
+crates.io
+
+# Documentation sites
+developer.mozilla.org
+*.readthedocs.io
+stackoverflow.com
+
+# Cloud providers (be selective)
+# *.amazonaws.com
+# *.googleapis.com
+
+# AI/ML resources
+huggingface.co
+ollama.ai
