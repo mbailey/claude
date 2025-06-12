@@ -15,5 +15,5 @@ claude-sandbox provides a secure way to run Claude with elevated permissions by 
 
 voice-mcp provides voice control capabilities for Claude, allowing hands-free interaction through speech recognition and synthesis.
 
-- GitHub: https://github.com/mbailey/voice-mcp
+- GitHub: [mbailey/voice-mcp](https://github.com/mbailey/voice-mcp)
 - Website: https://voice-mcp.com
