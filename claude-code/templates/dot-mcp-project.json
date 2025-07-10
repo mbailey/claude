@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "podman",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {}
+    },
+    "podman": {
+      "type": "stdio",
+      "command": "run",
+      "args": [
+        "-i",
+        "--rm",
+        "-e",
+        "BRAVE_API_KEY",
+        "docker.io/mcp/brave-search:latest"
+      ],
+      "env": {}
+    },
+    "slack": {
+      "command": "podman",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "SLACK_MCP_XOXC_TOKEN",
+        "-e",
+        "SLACK_MCP_XOXD_TOKEN",
+        "ghcr.io/korotovsky/slack-mcp-server",
+        "mcp-server",
+        "--transport",
+        "stdio"
+      ],
+      "env": {}
+    }
+  }
+}

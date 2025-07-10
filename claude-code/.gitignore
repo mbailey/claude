@@ -1,0 +1,9 @@
+chats/
+config/dot-claude/statsig
+config/dot-claude/.credentials.json
+config/dot-claude/CLAUDE.md
+config/dot-claude/projects/
+config/dot-claude/todos/
+spikes/spike-claude-code
+.git-spike-d-20250524
+spikes/claude-in-podman-with-mcp-IMPORTED

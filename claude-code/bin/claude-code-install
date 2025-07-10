@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# claude-install - Install Claude Code
+
+npm install -g @anthropic-ai/claude-code

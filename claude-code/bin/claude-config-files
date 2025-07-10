@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -o nounset -o pipefail -o errexit
+
+# Get absolute path to script, even when called via symlink
+command -v realpath &> /dev/null || {
+    echo "Error: 'realpath' is required but not found. Please install 'coreutils' (e.g. 'brew install coreutils' on macOS)." >&2
+    exit 1
+}
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+
+function usage() {
+    cat <<EOF
+Usage: $(basename "$0") [-h|--help]
+
+List all Claude configuration files for the current project or user.
+
+Options:
+  -h, --help     Show this help message and exit
+EOF
+}
+
+# Parse command line options
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Search in common config locations
+echo "Claude configuration files:"
+echo
+
+# Check home directory config locations
+if [[ -d "$HOME/.config/claude" ]]; then
+    find "$HOME/.config/claude" -type f | sort
+fi
+
+if [[ -d "$HOME/.claude" ]]; then
+    find "$HOME/.claude" -type f | sort
+fi
+
+# Check project config
+project_config_dir="$SCRIPT_DIR/../config"
+if [[ -d "$project_config_dir" ]]; then
+    find "$project_config_dir" -type f | sort
+fi
+
+# Check for dot-config in project
+if [[ -d "$project_config_dir/dot-config/claude" ]]; then
+    find "$project_config_dir/dot-config/claude" -type f | sort
+fi

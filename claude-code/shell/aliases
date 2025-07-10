@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Claude aliases
+alias c="claude --continue"
+alias cc="claude converse"
+alias cml='claude mcp list'
+alias cma='claude mcp add'
+alias cmau='claude mcp add --scope=user'
+# Run claude with Bedrock environment variables
+# alias claude="~/.claude/local/claude"
+alias claude-bedrock='CLAUDE_CODE_USE_BEDROCK=1 ANTHROPIC_MODEL="us.anthropic.claude-3-7-sonnet-20250219-v1:0" claude'

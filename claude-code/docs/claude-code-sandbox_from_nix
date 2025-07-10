@@ -1,0 +1,179 @@
+#!/nix/store/ywp33ksgp2v32g0dwril2ds1rlri1kp8-nushell-0.104.0/bin/nu
+
+# Claude Code Sandbox Wrapper for Nushell
+# Usage: claude-sandbox [claude-code arguments...]
+def --wrapped main [--binary=/nix/store/wcb47f9d10hsqsbrhkmasyglvnabmmlw-claude-code-1.0.11/bin/claude, ...args: string] {
+    # Configuration with proper error handling
+    let sandbox_home = try {
+        $env.CLAUDE_SANDBOX_HOME? | default ($env.HOME | path join ".claude-code-sandbox")
+    } catch {
+        ($env.HOME | path join ".claude-code-sandbox")
+    }
+
+    let workspace_dir = try {
+        $env.CLAUDE_WORKSPACE? | default ($sandbox_home | path join "workspace")
+    } catch {
+        ($sandbox_home | path join "workspace")
+    }
+
+    let cache_dir = ($sandbox_home | path join ".cache")
+    let config_dir = ($sandbox_home | path join ".config")
+
+    # Color utilities
+    def log [message: string] {
+        print $"(ansi green)[claude-sandbox](ansi reset) ($message)"
+    }
+
+    def warn [message: string] {
+        print $"(ansi yellow)[claude-sandbox](ansi reset) ($message)"
+    }
+
+    def error [message: string] {
+        print $"(ansi red)[claude-sandbox](ansi reset) ($message)"
+        exit 1
+    }
+
+    # Validation functions
+    def check_command [cmd: string]: nothing -> bool {
+        not (which $cmd | is-empty)
+    }
+
+    def safe_bind [source: string, target: string]: nothing -> list<string> {
+        if ($source | path exists) {
+            ["--ro-bind" $source $target]
+        } else {
+            []
+        }
+    }
+
+    # Setup sandbox environment
+    log "Setting up sandbox environment..."
+
+    # Create directories with error handling
+    try {
+        mkdir $cache_dir
+        mkdir $config_dir
+    } catch { |err|
+        error $"Failed to create sandbox directories: ($err.msg)"
+    }
+
+    # Get user information
+    let current_user = (try { whoami } catch { "sandbox" })
+    let current_uid = (try { id -u | into int } catch { 1000 })
+    let current_gid = (try { id -g | into int } catch { 1000 })
+    let current_group = (try { id -gn } catch { "users" })
+
+    # Create passwd file
+    let passwd_file = ($sandbox_home | path join "passwd")
+    let passwd_content = $"root:x:0:0:root:/root:/bin/sh\n($current_user):x:($current_uid):($current_gid):($current_user):($sandbox_home):/bin/sh"
+
+    try {
+        $passwd_content | save --force $passwd_file
+    } catch { |err|
+        error $"Failed to create passwd file: ($err.msg)"
+    }
+
+    # Create group file
+    let group_file = ($sandbox_home | path join "group")
+    let group_content = $"root:x:0:\n($current_group):x:($current_gid):($current_user)"
+
+    try {
+        $group_content | save --force $group_file
+    } catch { |err|
+        error $"Failed to create group file: ($err.msg)"
+    }
+
+    log $"Workspace: ($workspace_dir)"
+    log $"Sandbox home: ($sandbox_home)"
+
+    # Build bubblewrap arguments with safe binding
+    mut bwrap_args = [
+        # Basic filesystem structure
+        "--ro-bind" "/usr" "/usr"
+        "--ro-bind" "/bin" "/bin"
+        "--ro-bind" "/lib" "/lib"
+
+        # Custom passwd and group files
+        "--ro-bind" $passwd_file "/etc/passwd"
+        "--ro-bind" $group_file "/etc/group"
+
+        # Workspace
+        "--bind" $workspace_dir /workspace
+
+        # Sandbox home directory
+        "--bind" $sandbox_home $sandbox_home
+        "--chdir" /workspace
+        "--setenv" "HOME" $sandbox_home
+        "--setenv" "USER" $current_user
+
+        # Temporary filesystem
+        "--tmpfs" "/tmp"
+        "--tmpfs" "/var/tmp"
+
+        # Essential system directories
+        "--proc" "/proc"
+        "--dev-bind" "/dev/null" "/dev/null"
+        "--dev-bind" "/dev/zero" "/dev/zero"
+        "--dev-bind" "/dev/random" "/dev/random"
+        "--dev-bind" "/dev/urandom" "/dev/urandom"
+        "--dev-bind" "/dev/tty" "/dev/tty"
+
+        # Security options
+        "--unshare-all"
+        "--share-net"
+        "--die-with-parent"
+        "--new-session"
+
+        # Deny access to sensitive directories
+        "--tmpfs" "/root"
+        "--tmpfs" "/home"
+
+        # Allow access to Nix store (read-only)
+        "--ro-bind" "/nix" "/nix"
+    ]
+
+    # Add optional directories that may exist
+    let optional_binds = [
+        ["/lib64" "/lib64"]
+        ["/lib32" "/lib32"]
+        ["/etc/static" "/etc/static"]
+        ["/etc/ssl" "/etc/ssl"]
+        ["/etc/ca-certificates" "/etc/ca-certificates"]
+        ["/etc/pki" "/etc/pki"]
+        ["/etc/resolv.conf" "/etc/resolv.conf"]
+        ["/etc/hosts" "/etc/hosts"]
+        ["/run/current-system/sw" "/run/current-system/sw"]
+    ]
+
+    for bind in $optional_binds {
+        if ($bind.0 | path exists) {
+            $bwrap_args = ($bwrap_args | append ["--ro-bind" $bind.0 $bind.1])
+        }
+    }
+
+    # Add Claude authentication directories if they exist
+    let claude_config_source = ($env.HOME | path join ".config" "claude")
+    let claude_config_target = ($sandbox_home | path join ".config" "claude")
+
+    if ($claude_config_source | path exists) {
+        $bwrap_args = ($bwrap_args | append ["--ro-bind" $claude_config_source $claude_config_target])
+        log "Bound Claude config directory"
+    } else {
+        warn "Claude config directory not found - authentication may fail"
+    }
+
+    let claude_home_source = ($env.HOME | path join ".claude")
+    let claude_home_target = ($sandbox_home | path join ".claude")
+
+    if ($claude_home_source | path exists) {
+        $bwrap_args = ($bwrap_args | append ["--ro-bind" $claude_home_source $claude_home_target])
+        log "Bound Claude home directory"
+    }
+
+    log "Starting claude-code in sandbox..."
+    try {
+        ^/nix/store/n7fs0x67006cr63mb6xv9xsa36qhvdlj-bubblewrap-0.11.0/bin/bwrap ...$bwrap_args $binary ...$args
+    } catch { |err|
+        error $"Failed to execute claude-code: ($err.msg)"
+    }
+}

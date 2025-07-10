@@ -1,0 +1,173 @@
+#!/bin/bash
+# claude-project - Run Claude Code in a specific project directory with voice integration
+
+set -e
+
+usage() {
+    cat << EOF
+Usage: claude-project [OPTIONS] PROJECT_DIR QUERY
+
+Run Claude Code in a specific project directory with --continue -p
+
+Arguments:
+  PROJECT_DIR    Path to the project directory (can be relative or absolute)
+  QUERY         Query to send to Claude
+
+Options:
+  -h, --help        Show this help message
+  -v, --voice       Voice name to use (reads from .voices.txt in project)
+  -t, --timeout     Timeout for claude command (default: 60s)
+  -a, --allow-tools Additional tools to allow (can be used multiple times)
+  --interactive     Run in interactive mode instead of headless (experimental)
+
+Examples:
+  claude-project ~/Code/myproject "What tests are failing?"
+  claude-project -v nova ./webapp "Explain the auth flow"
+  claude-project -a "Write" -a "Edit" ./project "Update the README"
+  
+Project voice configuration:
+  Create .voices.txt in project root with format:
+    claude_voice=nova
+    claude_provider=openai
+    
+Default allowed tools:
+  - mcp__voice-mode__converse (for voice interactions)
+  - mcp__voice-mode__list_tts_voices 
+  - Read, Grep, Glob, LS (for code exploration)
+  - WebSearch, WebFetch (for research)
+EOF
+}
+
+# Default values
+TIMEOUT=60
+VOICE=""
+PROJECT_DIR=""
+QUERY=""
+INTERACTIVE=false
+ADDITIONAL_TOOLS=()
+
+# Default allowed tools for voice interaction workflow
+DEFAULT_TOOLS=(
+    "mcp__voice-mode__converse"
+    "mcp__voice-mode__list_tts_voices"
+    "Read"
+    "Grep" 
+    "Glob"
+    "LS"
+    "WebSearch"
+    "WebFetch"
+)
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -v|--voice)
+            VOICE="$2"
+            shift 2
+            ;;
+        -t|--timeout)
+            TIMEOUT="$2"
+            shift 2
+            ;;
+        -a|--allow-tools)
+            ADDITIONAL_TOOLS+=("$2")
+            shift 2
+            ;;
+        --interactive)
+            INTERACTIVE=true
+            shift
+            ;;
+        *)
+            if [[ -z "$PROJECT_DIR" ]]; then
+                PROJECT_DIR="$1"
+            elif [[ -z "$QUERY" ]]; then
+                QUERY="$1"
+            else
+                echo "Error: Too many arguments" >&2
+                usage
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Validate arguments
+if [[ -z "$PROJECT_DIR" ]] || [[ -z "$QUERY" ]]; then
+    echo "Error: Missing required arguments" >&2
+    usage
+    exit 1
+fi
+
+# Convert to absolute path
+PROJECT_DIR=$(realpath "$PROJECT_DIR" 2>/dev/null) || {
+    echo "Error: Project directory '$PROJECT_DIR' not found" >&2
+    exit 1
+}
+
+if [[ ! -d "$PROJECT_DIR" ]]; then
+    echo "Error: '$PROJECT_DIR' is not a directory" >&2
+    exit 1
+fi
+
+# Check for .voices.txt in project directory
+VOICES_FILE="$PROJECT_DIR/.voices.txt"
+if [[ -f "$VOICES_FILE" ]] && [[ -z "$VOICE" ]]; then
+    # Extract voice settings
+    CLAUDE_VOICE=$(grep -E '^claude_voice=' "$VOICES_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | xargs)
+    CLAUDE_PROVIDER=$(grep -E '^claude_provider=' "$VOICES_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | xargs)
+    
+    if [[ -n "$CLAUDE_VOICE" ]]; then
+        echo "Using project voice: $CLAUDE_VOICE (provider: ${CLAUDE_PROVIDER:-default})" >&2
+    fi
+fi
+
+# Build allowed tools list
+ALL_TOOLS=("${DEFAULT_TOOLS[@]}" "${ADDITIONAL_TOOLS[@]}")
+
+# Build claude command
+CLAUDE_CMD=(claude --continue)
+
+# Add allowed tools
+for tool in "${ALL_TOOLS[@]}"; do
+    CLAUDE_CMD+=(--allowedTools "$tool")
+done
+
+# Handle voice configuration from .voices.txt
+if [[ -n "$CLAUDE_VOICE" ]] || [[ -n "$VOICE" ]]; then
+    VOICE_TO_USE="${VOICE:-$CLAUDE_VOICE}"
+    echo "Voice mode: Using voice '$VOICE_TO_USE'" >&2
+fi
+
+# Change to project directory and run claude
+echo "Running Claude in: $PROJECT_DIR" >&2
+echo "Query: $QUERY" >&2
+echo "Allowed tools: ${ALL_TOOLS[*]}" >&2
+echo "---" >&2
+
+cd "$PROJECT_DIR"
+
+if [[ "$INTERACTIVE" == "true" ]]; then
+    # Experimental: Run in interactive mode for back-and-forth conversation
+    echo "[INTERACTIVE MODE - Type 'exit' to return to main Claude]" >&2
+    exec claude --continue
+else
+    # Run claude in headless mode with timeout
+    CLAUDE_CMD+=(-p "$QUERY")
+    
+    timeout "$TIMEOUT" "${CLAUDE_CMD[@]}" 2>&1 || {
+        EXIT_CODE=$?
+        if [[ $EXIT_CODE -eq 124 ]]; then
+            echo "Error: Command timed out after ${TIMEOUT}s" >&2
+        else
+            echo "Error: Claude exited with code $EXIT_CODE" >&2
+        fi
+        exit $EXIT_CODE
+    }
+fi
+
+echo -e "\n[Returned to main Claude voice assistant]" >&2
