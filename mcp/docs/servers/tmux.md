@@ -6,7 +6,7 @@ Control tmux sessions through Claude. Enables AI assistants to create, manage, a
 
 ```bash
 # Using Claude Code
-claude mcp add tmux -- npx -y @nickgnd/tmux-mcp
+claude mcp add tmux --scope user -- npx -y tmux-mcp
 
 # Or add to .mcp.json manually
 ```
@@ -20,7 +20,7 @@ claude mcp add tmux -- npx -y @nickgnd/tmux-mcp
     "command": "npx",
     "args": [
       "-y",
-      "@nickgnd/tmux-mcp"
+      "tmux-mcp"
     ],
     "env": {}
   }
@@ -29,33 +29,33 @@ claude mcp add tmux -- npx -y @nickgnd/tmux-mcp
 
 ## Available Tools
 
-- **list_sessions** - List all tmux sessions
-- **create_session** - Create a new tmux session
-- **attach_session** - Attach to a session
-- **send_keys** - Send keystrokes to a pane
-- **capture_pane** - Capture pane content
-- **kill_session** - Terminate a session
-- **split_window** - Split current window
-- **select_pane** - Switch between panes
+- **list-sessions** - List all active tmux sessions
+- **find-session** - Find a tmux session by name
+- **list-windows** - List windows in a tmux session
+- **list-panes** - List panes in a tmux window
+- **capture-pane** - Capture content from a tmux pane
+- **create-session** - Create a new tmux session
+- **create-window** - Create a new window in a tmux session
+- **execute-command** - Execute a command in a tmux pane
+- **get-command-result** - Get the result of an executed command
 
 ## Usage Examples
 
 ```javascript
 // Create a new session
-create_session({
-  "session_name": "demo",
-  "window_name": "main"
+await mcp.callTool('tmux', 'create-session', {
+  name: 'demo'
 })
 
-// Send commands
-send_keys({
-  "session_name": "demo",
-  "keys": "voice-mode-cli conversations"
+// Execute a command
+await mcp.callTool('tmux', 'execute-command', {
+  paneId: 'demo:0.0',
+  command: 'voice-mode-cli conversations'
 })
 
-// Capture output
-capture_pane({
-  "session_name": "demo"
+// Capture pane content
+await mcp.callTool('tmux', 'capture-pane', {
+  paneId: 'demo:0.0'
 })
 ```
 
