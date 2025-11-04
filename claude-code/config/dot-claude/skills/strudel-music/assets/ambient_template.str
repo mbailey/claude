@@ -1,0 +1,48 @@
+// Ambient Soundscape Template
+// A starting point for creating atmospheric ambient music
+
+// Layer 1: Deep drone foundation
+// Slowly evolving bass frequencies create the foundation
+$: note("<[c2,g2]@8 [f2,c3]@8>")
+  .sound("sawtooth")
+  .lpf(180)
+  .room(0.95)
+  .gain(0.25)
+  .slow(8)
+
+// Layer 2: Harmonic pad
+// Mid-range chords with gentle movement
+$: note("<[g3,b3,d4] [a3,c4,e4] [f3,a3,c4]>")
+  .sound("triangle")
+  .lpf(1000)
+  .room(0.75)
+  .delay(0.3)
+  .gain(0.45)
+  .slow(4)
+
+// Layer 3: Textural element
+// Sparse, algorithmically-spaced sounds create organic texture
+$: s("space(5,13)")
+  .speed(0.7)
+  .room(0.85)
+  .lpf(800)
+  .gain(0.3)
+  .slow(3)
+
+// Layer 4: Sparse melodic fragments
+// Minimal high notes with lots of space
+$: note("~ ~ c5 ~ ~ e5 ~ ~ ~ g5 ~ ~ ~ ~ ~ ~")
+  .sound("sine")
+  .room(0.9)
+  .delay(0.6)
+  .gain(0.3)
+  .slow(6)
+
+// Uncomment and modify layers above
+// Add your own layers below
+// Experiment with:
+// - Different note choices
+// - Varying .slow() values for different evolution speeds
+// - Filter cutoffs (.lpf/.hpf) for tonal shaping
+// - Reverb (.room) and delay amounts for spatial depth
+// - Euclidean patterns s("sound(beats,segments)") for organic rhythms

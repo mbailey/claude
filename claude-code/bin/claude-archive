@@ -1,0 +1,250 @@
+#!/bin/bash
+
+# claude-archive - Claude Code Historical Version Archiver
+# Downloads and maintains an archive of all published versions of @anthropic-ai/claude-code
+# This script is idempotent - it won't re-download existing versions
+
+set -euo pipefail
+
+# Default configuration
+PACKAGE_NAME="@anthropic-ai/claude-code"
+DEFAULT_ARCHIVE_DIR="$HOME/data/claude-code-archive"
+
+# Help function
+show_help() {
+    cat << EOF
+claude-archive - Claude Code Historical Version Archiver
+
+USAGE:
+    claude-archive [OPTIONS] [ARCHIVE_DIR]
+
+ARGUMENTS:
+    ARCHIVE_DIR    Directory to store the archive (default: ~/data/claude-code-archive)
+
+OPTIONS:
+    -h, --help     Show this help message
+    -v, --verbose  Verbose output
+    -n, --dry-run  Show what would be downloaded without downloading
+    --force        Re-download existing versions
+    --update-only  Only download versions newer than what we have
+
+EXAMPLES:
+    claude-archive                           # Download to default location
+    claude-archive /path/to/archive         # Download to specific location
+    claude-archive --update-only            # Only get new versions
+    claude-archive --dry-run --verbose      # See what would be downloaded
+
+The script is idempotent - running it multiple times won't re-download existing versions
+unless --force is used.
+
+EOF
+}
+
+# Parse command line arguments
+VERBOSE=false
+DRY_RUN=false
+FORCE_DOWNLOAD=false
+UPDATE_ONLY=false
+ARCHIVE_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        -n|--dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --force)
+            FORCE_DOWNLOAD=true
+            shift
+            ;;
+        --update-only)
+            UPDATE_ONLY=true
+            shift
+            ;;
+        -*|--*)
+            echo "Unknown option $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+        *)
+            if [[ -z "$ARCHIVE_DIR" ]]; then
+                ARCHIVE_DIR="$1"
+            else
+                echo "Too many arguments"
+                echo "Use --help for usage information"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Set default archive directory if not provided
+if [[ -z "$ARCHIVE_DIR" ]]; then
+    ARCHIVE_DIR="$DEFAULT_ARCHIVE_DIR"
+fi
+
+DOWNLOAD_DIR="$ARCHIVE_DIR/versions"
+LOG_FILE="$ARCHIVE_DIR/download.log"
+VERSIONS_FILE="$ARCHIVE_DIR/all-versions.json"
+
+# Helper functions
+log() {
+    local message="$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $message" | tee -a "$LOG_FILE"
+}
+
+verbose_log() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        log "$1"
+    fi
+}
+
+# Create directories
+if [[ "$DRY_RUN" == "false" ]]; then
+    mkdir -p "$DOWNLOAD_DIR"
+    mkdir -p "$(dirname "$LOG_FILE")"
+fi
+
+# Fetch latest version list
+log "Fetching version list from npm registry..."
+if [[ "$DRY_RUN" == "false" ]]; then
+    if ! curl -s "https://registry.npmjs.org/$PACKAGE_NAME" | jq '.versions | keys' > "$VERSIONS_FILE"; then
+        log "ERROR: Failed to fetch version list from npm registry"
+        exit 1
+    fi
+fi
+
+# Read versions
+if [[ -f "$VERSIONS_FILE" ]]; then
+    VERSIONS=$(jq -r '.[]' "$VERSIONS_FILE")
+else
+    log "ERROR: Version file not found: $VERSIONS_FILE"
+    exit 1
+fi
+
+total_versions=$(echo "$VERSIONS" | wc -l)
+log "Found $total_versions versions total"
+
+# Filter versions based on options
+if [[ "$UPDATE_ONLY" == "true" ]]; then
+    # Find the latest version we already have
+    if [[ -d "$DOWNLOAD_DIR" ]]; then
+        latest_downloaded=$(find "$DOWNLOAD_DIR" -maxdepth 1 -type d -name "*" | grep -E '[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 | xargs basename 2>/dev/null || echo "")
+        if [[ -n "$latest_downloaded" ]]; then
+            verbose_log "Latest downloaded version: $latest_downloaded"
+            # Filter to only newer versions
+            VERSIONS=$(echo "$VERSIONS" | while read version; do
+                if [[ "$(printf '%s\n' "$latest_downloaded" "$version" | sort -V | tail -1)" == "$version" && "$version" != "$latest_downloaded" ]]; then
+                    echo "$version"
+                fi
+            done)
+        fi
+    fi
+fi
+
+# Count versions to process
+versions_to_process=$(echo "$VERSIONS" | wc -l)
+log "Will process $versions_to_process versions"
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    log "DRY RUN: Would download the following versions:"
+    echo "$VERSIONS"
+    exit 0
+fi
+
+# Download versions
+current=1
+downloaded=0
+skipped=0
+failed=0
+
+for version in $VERSIONS; do
+    version_dir="$DOWNLOAD_DIR/$version"
+    
+    # Check if version already exists (unless force download)
+    if [[ "$FORCE_DOWNLOAD" == "false" && -d "$version_dir" && -f "$version_dir/package.json" ]]; then
+        if [[ "$VERBOSE" == "true" ]]; then
+            log "[$current/$versions_to_process] SKIP: $version (already exists)"
+        fi
+        ((skipped++))
+        ((current++))
+        continue
+    fi
+    
+    log "[$current/$versions_to_process] Downloading $PACKAGE_NAME@$version..."
+    
+    # Create version directory
+    mkdir -p "$version_dir"
+    
+    # Download the tarball
+    tarball_url="https://registry.npmjs.org/$PACKAGE_NAME/-/claude-code-$version.tgz"
+    
+    if curl -f -L -o "$version_dir/claude-code-$version.tgz" "$tarball_url" 2>/dev/null; then
+        # Extract the tarball
+        cd "$version_dir"
+        if tar -xzf "claude-code-$version.tgz" 2>/dev/null; then
+            # Move contents from package/ to version root and clean up
+            if [[ -d "package" ]]; then
+                mv package/* . 2>/dev/null || true
+                rmdir package 2>/dev/null || true
+            fi
+            
+            # Remove the tarball to save space
+            rm -f "claude-code-$version.tgz"
+            
+            # Create metadata file
+            if [[ -f "package.json" ]]; then
+                {
+                    echo "Version: $version"
+                    echo "Downloaded: $(date)"
+                    echo "Package: $PACKAGE_NAME"
+                    if jq -r '.description // empty' package.json > /dev/null 2>&1; then
+                        echo "Description: $(jq -r '.description // "No description"' package.json)"
+                    fi
+                } > metadata.txt
+            else
+                {
+                    echo "Version: $version" 
+                    echo "Downloaded: $(date)"
+                    echo "Package: $PACKAGE_NAME"
+                    echo "Status: package.json not found"
+                } > metadata.txt
+            fi
+            
+            verbose_log "  ✓ Successfully downloaded and extracted $version"
+            ((downloaded++))
+        else
+            log "  ✗ Failed to extract $version"
+            ((failed++))
+        fi
+    else
+        log "  ✗ Failed to download $version"
+        ((failed++))
+    fi
+    
+    ((current++))
+done
+
+# Final summary
+log ""
+log "=== DOWNLOAD SUMMARY ==="
+log "Total versions: $total_versions"
+log "Processed: $versions_to_process"
+log "Downloaded: $downloaded"
+log "Skipped (existing): $skipped"
+log "Failed: $failed"
+log "Archive location: $ARCHIVE_DIR"
+log "========================"
+
+if [[ $failed -gt 0 ]]; then
+    exit 1
+fi

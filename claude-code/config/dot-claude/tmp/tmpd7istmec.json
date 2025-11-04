@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "agents": {
+      "command": "agents",
+      "args": [
+        "mcp",
+        "server"
+      ],
+      "env": {
+        "CORA_ALLOWED_COOKIE_DOMAINS": "youtube.com,youtu.be",
+        "TOOLS_DISABLED": "session_notes"
+      }
+    },
+    "voicemode": {
+      "command": "uvx",
+      "args": [
+        "voice-mode"
+      ]
+    }
+  }
+}

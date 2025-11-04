@@ -25,6 +25,9 @@ Cross-platform protocol for extending Claude's capabilities through server integ
 ### 🔒 [Claude Sandbox](./claude-sandbox/) - Secure Execution
 Isolated environment for safe code execution with Claude Code. Provides containerized security and resource limits.
 
+### ⚡ [Claude Skills](./skills/) - Dynamic Task Capabilities
+Modular folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks. Token-efficient alternative to MCP for extending capabilities.
+
 ## Quick Start
 
 Choose your preferred access method:
@@ -101,7 +104,8 @@ claude/
 ├── claude-mcp/            # MCP protocol docs
 ├── claude-mobile/         # Mobile app guide
 ├── claude-sandbox/        # Sandbox documentation
-└── claude-web/            # Web interface guide
+├── claude-web/            # Web interface guide
+└── skills/                # Skills documentation and examples
 ```
 
 ## Security & Privacy

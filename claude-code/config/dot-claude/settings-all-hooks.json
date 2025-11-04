@@ -1,0 +1,139 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/show-edited-files.sh || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": ": # ~/.claude/hooks/restart-voice-conversation.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agents claude hooks receiver || true"
+          },
+          {
+            "type": "command",
+            "command": "voicemode claude hooks receiver || true"
+          }
+        ]
+      }
+    ]
+  },
+  "alwaysThinkingEnabled": true
+}
